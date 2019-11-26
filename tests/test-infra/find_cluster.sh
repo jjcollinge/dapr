@@ -37,6 +37,9 @@ for clustername in ${testclusterpool[@]}; do
     echo "Scanning $clustername ..."
 
     echo "Switching to $clustername context..."
+
+    echo "Echoing Azure creds..."
+
     # Switch to cluster context
     az aks get-credentials -n $clustername -g $DAPR_TEST_RESOURCE_GROUP
     if [ $? -ne 0 ]; then
