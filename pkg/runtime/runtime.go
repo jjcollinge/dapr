@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	net_http "net/http"
 	"os"
 	"reflect"
 	"strings"
@@ -21,7 +20,6 @@ import (
 	"github.com/dapr/components-contrib/bindings"
 	"github.com/dapr/components-contrib/exporters"
 	"github.com/dapr/components-contrib/middleware"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dapr/components-contrib/pubsub"
@@ -41,6 +39,7 @@ import (
 	servicediscovery_loader "github.com/dapr/dapr/pkg/components/servicediscovery"
 	state_loader "github.com/dapr/dapr/pkg/components/state"
 	"github.com/dapr/dapr/pkg/config"
+	"github.com/dapr/dapr/pkg/diagnostics"
 	"github.com/dapr/dapr/pkg/discovery"
 	"github.com/dapr/dapr/pkg/grpc"
 	"github.com/dapr/dapr/pkg/http"
@@ -89,6 +88,7 @@ type DaprRuntime struct {
 	actorStateStoreName      string
 	actorStateStoreCount     int
 	authenticator            security.Authenticator
+	metricsServer            diagnostics.MetricsServer
 }
 
 // NewDaprRuntime returns a new runtime with the given runtime config and global config
@@ -109,6 +109,7 @@ func NewDaprRuntime(runtimeConfig *Config, globalConfig *config.Configuration) *
 		exporterRegistry:         exporter_loader.NewRegistry(),
 		serviceDiscoveryRegistry: servicediscovery_loader.NewRegistry(),
 		httpMiddlewareRegistry:   http_middleware_loader.NewRegistry(),
+		metricsServer:            diagnostics.NewPromtheusMetricsServer(),
 	}
 }
 
@@ -220,7 +221,7 @@ func (a *DaprRuntime) initRuntime(opts *runtimeOpts) error {
 	log.Infof("gRPC server is running on port %v", a.runtimeConfig.GRPCPort)
 
 	if a.runtimeConfig.EnableMetrics {
-		a.startMetricsServer()
+		a.metricsServer.StartNonBlocking(a.runtimeConfig.MetricsPort)
 	}
 
 	err = a.announceSelf()
@@ -229,13 +230,6 @@ func (a *DaprRuntime) initRuntime(opts *runtimeOpts) error {
 	}
 
 	return nil
-}
-
-func (a *DaprRuntime) startMetricsServer() {
-	go func() {
-		log.Infof("starting metrics server on port %v", a.runtimeConfig.MetricsPort)
-		log.Fatal(net_http.ListenAndServe(fmt.Sprintf(":%d", a.runtimeConfig.MetricsPort), promhttp.Handler()))
-	}()
 }
 
 func (a *DaprRuntime) buildHTTPPipeline() (http_middleware.Pipeline, error) {

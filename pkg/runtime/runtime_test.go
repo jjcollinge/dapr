@@ -530,3 +530,67 @@ func TestMTLS(t *testing.T) {
 		assert.Nil(t, rt.authenticator)
 	})
 }
+
+type MockMetricsServer struct {
+	WasStarted bool
+	Port       int
+}
+
+func NewMockMetricsServer() *MockMetricsServer {
+	return &MockMetricsServer{}
+}
+
+func (s *MockMetricsServer) StartNonBlocking(port int) {
+	s.WasStarted = true
+	s.Port = port
+}
+
+func NewTestDaprRuntimeWithMetricsServer(mode modes.DaprMode) *DaprRuntime {
+	rt := NewTestDaprRuntime(mode)
+	rt.metricsServer = NewMockMetricsServer()
+	return rt
+}
+
+func TestMetrics(t *testing.T) {
+	t.Run("with metrics enabled", func(t *testing.T) {
+		rt := NewTestDaprRuntimeWithMetricsServer(modes.StandaloneMode)
+		defer rt.Stop()
+		rt.runtimeConfig.EnableMetrics = true
+		rt.runtimeConfig.MetricsPort = 9999
+		rt.runtimeConfig.ApplicationPort = -1
+		rt.runtimeConfig.GRPCPort = 0
+		rt.runtimeConfig.HTTPPort = 0
+		err := rt.initRuntime(&runtimeOpts{})
+
+		metricsServer := rt.metricsServer.(*MockMetricsServer)
+		assert.Nil(t, err)
+		assert.True(t, metricsServer.WasStarted)
+		assert.Equal(t, 9999, metricsServer.Port)
+	})
+	t.Run("with metrics disabled", func(t *testing.T) {
+		rt := NewTestDaprRuntimeWithMetricsServer(modes.StandaloneMode)
+		defer rt.Stop()
+		rt.runtimeConfig.EnableMetrics = true
+		rt.runtimeConfig.ApplicationPort = -1
+		rt.runtimeConfig.GRPCPort = 0
+		rt.runtimeConfig.HTTPPort = 0
+		err := rt.initRuntime(&runtimeOpts{})
+
+		metricsServer := rt.metricsServer.(*MockMetricsServer)
+		assert.Nil(t, err)
+		assert.False(t, metricsServer.WasStarted)
+	})
+	t.Run("with defaults", func(t *testing.T) {
+		rt := NewTestDaprRuntimeWithMetricsServer(modes.StandaloneMode)
+		defer rt.Stop()
+		rt.runtimeConfig.ApplicationPort = -1
+		rt.runtimeConfig.GRPCPort = 0
+		rt.runtimeConfig.HTTPPort = 0
+		err := rt.initRuntime(&runtimeOpts{})
+
+		metricsServer := rt.metricsServer.(*MockMetricsServer)
+		assert.Nil(t, err)
+		assert.True(t, metricsServer.WasStarted)
+		assert.Equal(t, 9090, metricsServer.Port)
+	})
+}
