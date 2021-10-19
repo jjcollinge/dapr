@@ -42,6 +42,7 @@ import (
 	"github.com/dapr/components-contrib/state/cassandra"
 	"github.com/dapr/components-contrib/state/cloudstate"
 	"github.com/dapr/components-contrib/state/couchbase"
+	"github.com/dapr/components-contrib/state/external"
 	"github.com/dapr/components-contrib/state/gcp/firestore"
 	"github.com/dapr/components-contrib/state/hashicorp/consul"
 	"github.com/dapr/components-contrib/state/hazelcast"
@@ -235,6 +236,9 @@ func main() {
 			state_loader.New("aws.dynamodb", state_dynamodb.NewDynamoDBStateStore),
 			state_loader.New("mysql", func() state.Store {
 				return state_mysql.NewMySQLStateStore(logContrib)
+			}),
+			state_loader.New("external", func() state.Store {
+				return external.New()
 			}),
 		),
 		runtime.WithPubSubs(
